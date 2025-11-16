@@ -167,9 +167,20 @@ def fetch_sonnets_from_api() -> List[Dict[str, Any]]:
     - PoetryDB returns a list of poems.
     - You can add error handling: raise a RuntimeError (or print a helpful message) if something goes wrong.
     """
-    sonnets = {}
+    url = "https://poetrydb.org/author,title/Shakespeare;Sonnet"
+    sonnets = []
+    try:
+        with urllib.request.urlopen(url) as response:
+            sonnets = json.load(response)
+        if not isinstance(sonnets, list):
+            raise RuntimeError("Unexpected data format")
+    except json.JSONDecodeError:
+        raise RuntimeError("Failed to decode JSON from PoetryDB response")
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"HTTP error {e.code}: {e.reason}")
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Failed to reach server: {e.reason}")
     return sonnets
-
 
 def load_sonnets() -> List[Dict[str, Any]]:
     """ToDo 2:
@@ -187,8 +198,20 @@ def load_sonnets() -> List[Dict[str, Any]]:
     """
 
     # Default implementation: Load from the API always
-
-    return fetch_sonnets_from_api()
+    file = module_relative_path("sonnets.json")
+    if os.path.exists(file):
+        try:
+            with open(file, "r", encoding="utf-8") as json_file:
+                sonnets = json.load(json_file)
+            print("Loaded sonnets from cache.")
+            return sonnets
+        except json.JSONDecodeError:
+            print("Cache file corrupted")
+    sonnets = fetch_sonnets_from_api()
+    print("Downloaded sonnets from PoetryDB.")
+    with open(file, "w", encoding="utf-8") as json_file:
+        json.dump(sonnets, json_file, indent=2)
+    return sonnets
 
 # ---------- Config handling (carry over from Part 5) ----------
 
@@ -198,14 +221,20 @@ def load_config() -> Dict[str, Any]:
     """ToDo 0:
     Copy your working implementation from Part 5.
     """
-
-    return DEFAULT_CONFIG.copy()
+    filename_config = module_relative_path("config.json")
+    if os.path.exists(filename_config):
+        with open(filename_config, "r", encoding="utf-8") as file:
+            return DEFAULT_CONFIG | json.load(file)
+    else:
+        return DEFAULT_CONFIG.copy()
 
 def save_config(cfg: Dict[str, Any]) -> None:
     """ToDo 0:
     Copy your working implementation from Part 5.
     """
-    pass
+    filename_config = module_relative_path("config.json")
+    with open(filename_config, "w", encoding="utf-8") as file:
+        json.dump(cfg, file, indent=2, ensure_ascii=False)
 
 
 # ---------- CLI loop ----------
@@ -216,8 +245,12 @@ def main() -> None:
 
     # Load sonnets (from cache or API)
     # ToDo 3: Time how long loading the sonnets take and print it to the console
+    start = time.perf_counter()
     sonnets = load_sonnets()
+    end = time.perf_counter()
 
+    elapsed = (end-start)*1000
+    print(f"Elapsed time: {elapsed:.3f} [ms]")
     print(f"Loaded {len(sonnets)} sonnets.")
 
     while True:
@@ -246,6 +279,7 @@ def main() -> None:
                     config["highlight"] = parts[1].lower() == "on"
                     print("Highlighting", "ON" if config["highlight"] else "OFF")
                     # ToDo 5: call save_config(config) here so the choice persists.
+                    save_config(config)
                 else:
                     print("Usage: :highlight on|off")
                 continue
@@ -269,6 +303,7 @@ def main() -> None:
             continue
 
         # ToDo 3: Time how the execution of the user query takes
+        start = time.perf_counter()
 
         # query
         combined_results = []
@@ -300,7 +335,10 @@ def main() -> None:
                         combined_results[i] = combine_results(combined_result, result)
 
         # Initialize elapsed_ms to contain the number of milliseconds the query evaluation took
-        elapsed_ms = 0
+        end = time.perf_counter()
+        elapsed_ms = (end - start) * 1000
+
+        print(f"Elapsed time of the query execution: {elapsed_ms:.3f} [ms]")
 
         print_results(raw, combined_results, bool(config.get("highlight", True)), elapsed_ms)
 
