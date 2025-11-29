@@ -207,11 +207,10 @@ def load_sonnets() -> List[Dict[str, Any]]:
             return sonnets
         except json.JSONDecodeError:
             print("Cache file corrupted")
-    sonnets = fetch_sonnets_from_api()
     print("Downloaded sonnets from PoetryDB.")
     with open(file, "w", encoding="utf-8") as json_file:
         json.dump(sonnets, json_file, indent=2)
-    return sonnets
+    return fetch_sonnets_from_api()
 
 # ---------- Config handling (carry over from Part 5) ----------
 
