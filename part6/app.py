@@ -22,7 +22,7 @@ import time
 import urllib.request
 import urllib.error
 
-from .constants import BANNER, HELP, POETRYDB_URL
+from .constants import BANNER, HELP, POETRYDB_URL, CACHE_FILENAME
 
 
 # ---------- Search helpers (unchanged from Part 5) ----------
@@ -198,7 +198,7 @@ def load_sonnets() -> List[Dict[str, Any]]:
     """
 
     # Default implementation: Load from the API always
-    file = module_relative_path("sonnets.json")
+    file = module_relative_path(CACHE_FILENAME)
     if os.path.exists(file):
         try:
             with open(file, "r", encoding="utf-8") as json_file:
